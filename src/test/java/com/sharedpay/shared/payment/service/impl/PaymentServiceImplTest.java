@@ -1,12 +1,10 @@
 package com.sharedpay.shared.payment.service.impl;
 import com.sharedpay.shared.payment.entity.Parent;
+import com.sharedpay.shared.payment.entity.ParentBalanceAudit;
 import com.sharedpay.shared.payment.exception.ResourceNotFoundException;
 import com.sharedpay.shared.payment.exception.UnAuthorizedException;
 import com.sharedpay.shared.payment.payload.PaymentRequestDto;
-import com.sharedpay.shared.payment.repository.ParentRepository;
-import com.sharedpay.shared.payment.repository.PaymentRateRepository;
-import com.sharedpay.shared.payment.repository.PaymentTransactionRepository;
-import com.sharedpay.shared.payment.repository.StudentRepository;
+import com.sharedpay.shared.payment.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
@@ -32,6 +30,9 @@ class PaymentServiceImplTest {
 
     @Mock
     private PaymentTransactionRepository paymentTransactionRepository;
+
+    @Mock
+    private ParentBalanceAuditRepository auditRepository;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -127,15 +128,27 @@ class PaymentServiceImplTest {
 
     @Test
     void addAmountToParent_shouldUpdateBalanceSuccessfully() {
+
         Parent parent = new Parent();
         parent.setBalance(BigDecimal.valueOf(200));
 
+        Authentication auth = mock(Authentication.class);
+        when(auth.getName()).thenReturn("testUser");
+        when(auth.isAuthenticated()).thenReturn(true);
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(securityContext);
+
         when(parentRepository.findById(1L)).thenReturn(Optional.of(parent));
+
 
         paymentService.addAmountToParent(1L, BigDecimal.valueOf(100));
 
+
         assertEquals(BigDecimal.valueOf(300), parent.getBalance());
         verify(parentRepository, times(1)).save(parent);
+        verify(auditRepository, times(1)).save(any(ParentBalanceAudit.class));
     }
+
 
 }

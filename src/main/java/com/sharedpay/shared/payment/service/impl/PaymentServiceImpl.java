@@ -1,15 +1,9 @@
 package com.sharedpay.shared.payment.service.impl;
-import com.sharedpay.shared.payment.entity.Parent;
-import com.sharedpay.shared.payment.entity.PaymentRate;
-import com.sharedpay.shared.payment.entity.PaymentTransaction;
-import com.sharedpay.shared.payment.entity.Student;
+import com.sharedpay.shared.payment.entity.*;
 import com.sharedpay.shared.payment.exception.ResourceNotFoundException;
 import com.sharedpay.shared.payment.exception.UnAuthorizedException;
 import com.sharedpay.shared.payment.payload.PaymentRequestDto;
-import com.sharedpay.shared.payment.repository.ParentRepository;
-import com.sharedpay.shared.payment.repository.PaymentRateRepository;
-import com.sharedpay.shared.payment.repository.PaymentTransactionRepository;
-import com.sharedpay.shared.payment.repository.StudentRepository;
+import com.sharedpay.shared.payment.repository.*;
 import com.sharedpay.shared.payment.service.PaymentService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +22,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final StudentRepository studentRepository;
     private final PaymentRateRepository paymentRateRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final ParentBalanceAuditRepository auditRepository;
 
     @Override
     @Transactional
@@ -119,7 +114,6 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Parent not found"));
 
         BigDecimal currentBalance = safeBalance(parent.getBalance());
-
         BigDecimal newBalance = currentBalance.add(amountToAdd);
 
         if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
@@ -127,8 +121,19 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         parent.setBalance(newBalance);
-
         parentRepository.save(parent);
+
+
+        ParentBalanceAudit audit = new ParentBalanceAudit();
+        audit.setParentId(parentId);
+        audit.setAmountChanged(amountToAdd);
+        audit.setPreviousBalance(currentBalance);
+        audit.setNewBalance(newBalance);
+        audit.setPerformedBy(authentication.getName());
+        audit.setTimestamp(LocalDateTime.now());
+        audit.setAction("ADD_FUNDS");
+
+        auditRepository.save(audit);
     }
 
 }
